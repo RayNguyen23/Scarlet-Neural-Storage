@@ -10,80 +10,86 @@ Deterministic **integer arithmetic coding** pipeline: binary payloads are mapped
 
 ## Mathematics and core algorithms
 
+Notation below uses plain text and code so it renders the same in GitHub, editors, and terminals (no LaTeX required).
+
 ### 1. Fixed-range integer arithmetic coding
 
-The codec treats the payload as a sequence of bytes (symbols in alphabet \(\mathcal{A} = \{0,\ldots,255\}\), so \(|\mathcal{A}| = q = 256\)).
+The codec treats the payload as a sequence of bytes: alphabet **A** is all byte values **0 .. 255**, alphabet size **q = 256**.
 
-An **integer interval** \([L, H)\) is maintained with **exact integer arithmetic** (implemented with `decimal.Decimal` and **floor division** `//` only on the encode/decode path—no `float` or `round()` in those updates, so behavior is stable across platforms).
+An **integer half-open interval** `[L, H)` is maintained with **exact integer arithmetic** (via `decimal.Decimal` and floor division `//` on the encode/decode path only—no `float` or `round()` there, so behavior is stable across platforms).
 
-**Initial range.** Before each block of up to \(B = 128\) bytes:
+**Initial range.** Before each block of up to **B = 128** bytes:
 
-\[
-L_0 = 0,\quad H_0 = R,\quad R = 10^{800}.
-\]
+```text
+L := 0
+H := R
+R := 10**800   (same as 10^800; a huge integer range)
+```
 
-Using a huge \(R\) keeps the subinterval width from collapsing to zero under \(B\) successive refinements.
+A very large **R** keeps the interval width from collapsing to zero after **B** refinement steps.
 
-**Refinement for one byte** \(b \in \{0,\ldots,255\}\). Let \(w = H - L\). The encoder narrows the interval with:
+**Refinement for one byte** `b` in `0 .. 255`. Let `w = H - L`. The encoder updates:
 
-\[
-H \leftarrow L + \left\lfloor \frac{w \cdot (b+1)}{q} \right\rfloor,\qquad
-L \leftarrow L + \left\lfloor \frac{w \cdot b}{q} \right\rfloor.
-\]
+```text
+H := L + (w * (b + 1)) // q
+L := L + (w * b) // q
+```
 
-This is the standard **partition of \([L,H)\) into 256 subintervals** using integer endpoints, so every step is **reversible** when the decoder applies the same recurrence.
+(`//` is integer floor division, matching the Python implementation.)
 
-**Pure-low seed.** After processing all bytes in the block, the **seed** stored for that block is the **lower endpoint** \(L\) (as a decimal string). Storing the low bound avoids ambiguity from midpoint rounding strategies.
+This **partitions `[L, H)` into 256 subintervals** with integer endpoints; the decoder applies the same recurrence, so each step is **reversible**.
+
+**Pure-low seed.** After all bytes in the block, the stored **seed** is the **lower endpoint** `L` (as a decimal string). Using the low bound avoids ambiguity from midpoint-style rounding.
 
 ### 2. Decoding (summon): binary search per byte
 
-The decoder holds the same \([L_0,H_0) = [0,R)\). For each output byte it knows the target value \(V\) equals the encoder’s stored \(L\) at the end of the block, but **incrementally** it must recover each byte by matching subintervals.
+The decoder starts with `[L, H) = [0, R)`. The target value **V** is the encoder’s final `L` for the block; each output byte is recovered by matching subintervals.
 
-For current \([L,H)\) with width \(w = H-L\), the smallest threshold for symbol \(m\) is:
+For current `[L, H)` with `w = H - L`, the left edge of the subinterval for symbol **m** is:
 
-\[
-T(m) = L + \left\lfloor \frac{w \cdot m}{q} \right\rfloor.
-\]
+```text
+T(m) = L + (w * m) // q
+```
 
-The correct byte is the **largest** \(m \in \{0,\ldots,255\}\) such that \(T(m) \le V\). The implementation finds this with **binary search** on \(m\) (8–9 steps per byte), then applies the same \((L,H)\) update as the encoder for that \(m\). Repeating for each byte in the block reproduces the original byte string **exactly** when \(V\) is the true seed.
+The emitted byte is the **largest** `m` in `0 .. 255` such that `T(m) <= V`. The code uses **binary search** on `m` (about 8 to 9 steps per byte), then applies the same `(L, H)` update as the encoder for that `m`. Repeating for the whole block recovers the original bytes **exactly** when **V** is the true seed.
 
 ### 3. Block structure
 
-- **`block_size` \(B = 128\)** bytes per seed (last block may be shorter).
-- **`INT_RANGE` \(R = 10^{800}\)** is shared by encoder and decoder and must not diverge.
-- **`base` \(q = 256\)** matches byte alphabet size.
+- **`block_size` B = 128** bytes per seed (last block may be shorter).
+- **`INT_RANGE` R = 10^800** must match in encoder and decoder.
+- **`base` q = 256** (one symbol per byte).
 
 ### 4. Integrity: SHA-256
 
-Before encoding, the raw payload bytes \(X\) are fingerprinted:
+For payload bytes **X**:
 
-\[
-h = \mathrm{SHA256}(X).
-\]
+```text
+h = SHA256(X)
+```
 
-After reconstruction \(X'\), acceptance requires \( \mathrm{SHA256}(X') = h \). Mismatch aborts summon with an error (session left in `encoded` state for retry).
+After reconstruction **X'**, require **SHA256(X') = h**. On mismatch, summon aborts (session can stay in `encoded` for retry).
 
 ### 5. Codec fingerprint (`state_hash`)
 
-`CaptureDeterministicState` records `model` (engine version string), `block_size`, `precision`, and a **SHA-256 hash of the version string** used to ensure the resurrector agrees with the encoder configuration before decode.
+`CaptureDeterministicState` records `model` (engine version string), `block_size`, `precision`, and a **SHA-256 hash of the version string** so the resurrector agrees with the encoder configuration before decode.
 
 ### 6. Shannon entropy (utility)
 
-`AnalyzeEntropy` computes, for empirical byte frequencies \(p_i\):
+For empirical byte frequencies **p_i** (proportion of byte value *i*):
 
-\[
-H = -\sum_i p_i \log_2 p_i
-\]
+```text
+H = -sum_i(p_i * log2(p_i))    (bits per symbol; 0*log2(0) treated as 0)
+```
 
-(in bits per symbol). It is **informational** in this codebase and does not change the coding intervals.
+This is **informational** only; it does not change the coding intervals.
 
 ### 7. Semantic index (simulation)
 
-For a description string \(d\), a 16-hex “coordinate” is:
+For description string **d**, a 16-hex “coordinate” is the first 16 hex digits of **SHA256**(lowercase **d**):
 
-\[
-\text{coord} = \mathrm{hex}\big(\mathrm{SHA256}(d_{\text{lower}})\big)_{0..15}.
-\]
+```text
+coord = hex(SHA256(d_lower))[0:16]
+```
 
 This is a **deterministic hash tag**, not a learned embedding.
 
@@ -191,7 +197,7 @@ Expect `OK round-trip 2048 bytes` and exit code `0`. For UI runs, compare `shasu
 ## Contributor rules (codec)
 
 - Keep **integer floor division** in interval updates; floats/`round()` there can **break** bit-identical decode.  
-- Encoder and decoder must share **\(R\)**, **\(B\)**, and **\(q\)**.
+- Encoder and decoder must share the same **R**, **B**, and **q** (`INT_RANGE`, `block_size`, alphabet size 256).
 
 ---
 
