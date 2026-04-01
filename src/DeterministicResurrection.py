@@ -18,7 +18,7 @@ class DeterministicResurrection:
             self.is_ready = True
             print(f"Resurrect ready blocks={len(seeds)}")
         else:
-            raise Exception("Resurrect aborted: AI state_hash mismatch")
+            raise Exception("Resurrect aborted: codec state_hash mismatch")
 
     def BitPerfectReconstruction(self, seeds, original_size, progress_callback=None):
         if not self.is_ready:

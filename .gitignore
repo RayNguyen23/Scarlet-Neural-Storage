@@ -1,3 +1,4 @@
+logs/*.txt
 .scarlet/
 __pycache__/
 *.pyc

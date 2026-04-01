@@ -4,8 +4,8 @@ from decimal import Decimal, getcontext
 
 
 class NeuralEncoding:
-    def __init__(self, ai_model_version="Ray-Neural-v1.2-Final"):
-        self.model_version = ai_model_version
+    def __init__(self, engine_version="Ray-Neural-v1.2-Final"):
+        self.model_version = engine_version
         self.block_size = 128
         self.base = 256
         getcontext().prec = 1000

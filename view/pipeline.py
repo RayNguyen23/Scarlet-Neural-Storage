@@ -300,7 +300,7 @@ def run_encoding_phase(
         )
         state.log(f"Payload sha256={original_hash} bytes={original_size}")
 
-        encoder = NeuralEncoding(ai_model_version="Ray-Neural-v1.2-Final")
+        encoder = NeuralEncoding(engine_version="Ray-Neural-v1.2-Final")
 
         def enc_cb(done, total):
             _map_encode(done, total, 8.0, 72.0, state)
