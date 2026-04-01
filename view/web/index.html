@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scarlet Neural Storage</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app" class="app-root">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-name">Scarlet Neural Storage</span>
+        <span class="brand-tag">Integer-strict DNA engine</span>
+      </div>
+      <div class="topbar-status">
+        <span id="workflowBadge" class="badge badge-idle">Idle</span>
+        <span id="opLine" class="op-line muted">—</span>
+      </div>
+    </header>
+
+    <div class="progress-global">
+      <div class="progress-track">
+        <div id="progressFill" class="progress-fill"></div>
+      </div>
+      <div class="progress-meta">
+        <span id="pctText">0%</span>
+      </div>
+    </div>
+
+    <nav class="stepper" aria-label="Workflow">
+      <div id="step1" class="step" data-step="1">
+        <span class="step-num">1</span>
+        <span class="step-label">Neural encoding</span>
+        <span class="step-hint">Ingest → seeds → manifest → devices</span>
+      </div>
+      <div class="step-connector" aria-hidden="true"></div>
+      <div id="step2" class="step" data-step="2">
+        <span class="step-num">2</span>
+        <span class="step-label">Summon</span>
+        <span class="step-hint">Reconstruct → SHA-256 → restore</span>
+      </div>
+    </nav>
+
+    <main class="workspace">
+      <section class="panel panel-encode" aria-labelledby="encode-heading">
+        <h2 id="encode-heading" class="panel-title">Step 1 — Encode</h2>
+        <p class="panel-lead">Select payload, choose device count, run encoding. Session is written to memory and <code>.scarlet/neural_session.pkl</code> for recovery.</p>
+
+        <label class="lbl">Source</label>
+        <div class="field-row">
+          <input type="text" id="sourcePath" class="input" readonly placeholder="No source selected" />
+          <button type="button" id="btnFile" class="btn btn-ghost">File</button>
+          <button type="button" id="btnFolder" class="btn btn-ghost">Folder</button>
+        </div>
+        <input type="hidden" id="isFolder" value="false" />
+
+        <label class="lbl" for="deviceCount">Simulated P2P nodes</label>
+        <input type="number" id="deviceCount" class="input input-narrow" min="1" max="99" value="3" />
+
+        <div class="checklist" id="encodeChecks" aria-live="polite">
+          <div class="check" id="chkPath"><span class="dot"></span> Source selected</div>
+          <div class="check" id="chkSession"><span class="dot"></span> Session in memory (after encode)</div>
+        </div>
+
+        <button type="button" id="btnEncode" class="btn btn-primary" disabled>Run encoding</button>
+      </section>
+
+      <section class="panel panel-summon" aria-labelledby="summon-heading">
+        <h2 id="summon-heading" class="panel-title">Step 2 — Summon</h2>
+        <p class="panel-lead">Uses the active session only. After a restart, use <strong>Load session</strong> if <code>.scarlet/</code> exists.</p>
+
+        <div class="kv-block" id="sessionSummary">
+          <div class="kv"><span class="k">SHA-256</span><span class="v" id="sumHash">—</span></div>
+          <div class="kv"><span class="k">Size</span><span class="v" id="sumSize">—</span></div>
+          <div class="kv"><span class="k">Seed blocks</span><span class="v" id="sumBlocks">—</span></div>
+          <div class="kv"><span class="k">Output</span><span class="v clip" id="sumOut">—</span></div>
+        </div>
+
+        <button type="button" id="btnSummon" class="btn btn-accent" disabled>Run summon &amp; restore</button>
+
+        <div class="row-actions">
+          <button type="button" id="btnFinder" class="btn btn-ghost" disabled>Open in Finder</button>
+        </div>
+      </section>
+    </main>
+
+    <section class="drawer" aria-label="Activity">
+      <div class="drawer-head">
+        <span class="drawer-title">Activity</span>
+        <button type="button" id="btnToggleParams" class="btn btn-mini btn-ghost" aria-expanded="false">Parameters</button>
+      </div>
+      <div id="logTail" class="log-tail" role="log"></div>
+      <div id="paramsDrawer" class="params-drawer" hidden>
+        <div id="paramList" class="param-list"></div>
+      </div>
+    </section>
+
+    <footer class="footbar">
+      <div class="foot-actions">
+        <button type="button" id="btnLoadSession" class="btn btn-ghost btn-sm">Load session</button>
+        <button type="button" id="btnSaveSession" class="btn btn-ghost btn-sm">Save session</button>
+        <button type="button" id="btnReset" class="btn btn-danger btn-sm">Reset workspace</button>
+      </div>
+      <p id="diskHint" class="disk-hint muted"></p>
+    </footer>
+
+    <div id="bannerError" class="banner-error" role="alert" hidden></div>
+  </div>
+
+  <script src="/eel.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
